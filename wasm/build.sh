@@ -21,6 +21,6 @@ emcc -O2 -I"$DEPS/libmbus/mbus" \
  -s WASM=1 -s MODULARIZE=1 -s ENVIRONMENT=web,node -s EXPORT_NAME=createLibmbusModule \
  -s ALLOW_MEMORY_GROWTH=1 -s FILESYSTEM=0 \
  -s 'EXPORTED_FUNCTIONS=["_zihatec_mbus_xml","_malloc","_free"]' \
- -s 'EXPORTED_RUNTIME_METHODS=["ccall"]' \
+ -s 'EXPORTED_RUNTIME_METHODS=["ccall","HEAPU8"]' \
  -o "$ROOT/libmbus.js"
 echo "Built libmbus.js + libmbus.wasm. Verify before release."
