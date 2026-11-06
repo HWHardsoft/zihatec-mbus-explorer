@@ -1,1 +1,43 @@
-
+name: Build and test real libmbus WebAssembly
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'wasm/**'
+      - 'tests/**'
+      - '.github/workflows/build-libmbus.yml'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: '4.0.11'
+      - name: Build libmbus decoder from upstream
+        run: bash wasm/build.sh
+      - name: Check generated files
+        run: |
+          test -s wasm/libmbus.js
+          test -s wasm/libmbus.wasm
+          test -s wasm/libmbus-commit.txt
+      - name: Test original JS fallback
+        run: node tests/smoke-test.cjs
+      - name: Execute compiled libmbus WASM with valid and invalid telegrams
+        run: node tests/libmbus-wasm-test.cjs
+      - name: Include libmbus copyright and license
+        run: |
+          cp wasm/_deps/libmbus/LICENSE wasm/LIBMBUS-LICENSE.txt
+          cp wasm/_deps/libmbus/COPYING wasm/LIBMBUS-COPYING.txt
+      - name: Upload tested decoder (not auto-published)
+        uses: actions/upload-artifact@v4
+        with:
+          name: libmbus-wasm-tested
+          path: |
+            wasm/libmbus.js
+            wasm/libmbus.wasm
+            wasm/libmbus-commit.txt
+            wasm/LIBMBUS-LICENSE.txt
+            wasm/LIBMBUS-COPYING.txt
