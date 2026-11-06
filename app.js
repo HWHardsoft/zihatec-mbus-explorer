@@ -167,6 +167,6 @@ $('importFrame').onclick=()=>{
   $('exportJson').disabled=false;
  }catch(e){$('importResult').textContent='⚠ '+e.message;log('IMPORT ERROR  '+e.message)}
 };
-$('exportJson').onclick=()=>{const e=devices.get(activeAddress);if(!e)return;const data={explorerVersion:'0.7-dev',decoder:window.MbusDecoder.metadata,primaryAddress:activeAddress,imported:!!e.imported,frames:(e.frames||[e.frame]).map(f=>hex(f.bytes)),decoded:e.decoded};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='zihatec-mbus-'+activeAddress+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+$('exportJson').onclick=()=>{const e=devices.get(activeAddress);if(!e)return;const data={explorerVersion:'0.7-libmbus',decoder:window.MbusDecoder.metadata,primaryAddress:activeAddress,imported:!!e.imported,frames:(e.frames||[e.frame]).map(f=>hex(f.bytes)),decoded:e.decoded};const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='zihatec-mbus-'+activeAddress+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
 
 controls();updateTree();applyLanguage();refreshPorts();log('Zihatec M-BUS Explorer v0.7-dev ready.');

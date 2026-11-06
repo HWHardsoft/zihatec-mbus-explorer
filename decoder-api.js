@@ -4,10 +4,34 @@
  const state={engine:'Zihatec JavaScript',version:'0.6',status:'fallback',reason:'libmbus WASM not installed'};
  let native=null;
  const element=(node,name)=>node?.getElementsByTagName(name)[0]?.textContent?.trim()||'';
+ // libmbus XML stores engineering-unit scaling in <Unit>, not in <Value>.
+ // For example: <Unit>External temperature (1e-2  deg C)</Unit>, <Value>1932</Value>.
+ function interpretRecord(unitText,rawValue){
+  let name=unitText||'Unbekannt',unit='',value=rawValue;
+  const match=/^(.*?)\s*\(([^()]*)\)\s*$/.exec(unitText);
+  if(match){
+   name=match[1].trim()||unitText;
+   const spec=match[2].trim();
+   // A scale in libmbus XML is typically 1e-2, 1e-3, 10, 100, etc.
+   const scaled=/^(1e[+-]?\d+|10(?:\^\d+)?|100|1000|0\.\d+)\s+(.+)$/i.exec(spec);
+   if(scaled){
+    const factor=scaled[1].includes('^')?Math.pow(10,Number(scaled[1].split('^')[1])):Number(scaled[1]);
+    if(Number.isFinite(factor)&&factor>0&&/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(rawValue)){
+     const numeric=Number(rawValue)*factor;
+     if(Number.isFinite(numeric)){
+      // Avoid 19.319999999999997 when rendering decimal factors.
+      const exp=/^1e-(\d+)$/i.exec(scaled[1]);
+      value=exp?numeric.toFixed(Math.min(12,Number(exp[1]))).replace(/\.?0+$/,''):String(Number(numeric.toPrecision(12)));
+     }
+    }
+    unit=scaled[2].trim();
+   }else unit=spec;
+  }
+  unit=unit.replace(/deg\s*C/gi,'°C').replace(/deg\s*F/gi,'°F').replace(/m\^3/g,'m³');
+  return {name,value,unit};
+ }
  function fromXml(xml,base){
   if(typeof DOMParser==='undefined')throw new Error('XML parser unavailable');
-  // libmbus declares ISO-8859-1. Emscripten string decoding uses UTF-8; strip the
-  // XML processing instruction and pass normalized UTF-8 content to the DOM parser.
   xml=xml.replace(/^\s*<\?xml[^>]*\?>/i,'');
   const doc=new DOMParser().parseFromString(xml,'application/xml');
   if(doc.querySelector('parsererror'))throw new Error('libmbus XML parse error');
@@ -16,18 +40,19 @@
   const error=element(root,'Error');if(error)throw new Error(error);
   const h=root.getElementsByTagName('SlaveInformation')[0];
   const records=[...root.getElementsByTagName('DataRecord')].map((r,i)=>{
-   const unit=element(r,'Unit'), fn=element(r,'Function'), value=element(r,'Value');
+   const unitText=element(r,'Unit'),fn=element(r,'Function'),rawValue=element(r,'Value');
    const storage=element(r,'StorageNumber'),tariff=element(r,'Tariff'),dev=element(r,'Device');
    const details=[fn,storage!==''?'Speicher '+storage:'',tariff!==''?'Tarif '+tariff:'',dev!==''?'Einheit '+dev:''].filter(Boolean).join(' · ');
-   return {index:i+1,name:unit||fn||'Unbekannt',value,unit:'',details,raw:'',unknown:!unit};
+   const interpreted=interpretRecord(unitText,rawValue);
+   return {index:i+1,...interpreted,details,raw:rawValue,unknown:!unitText};
   });
-  // libmbus <Unit> may be a complete unit description: preserve it verbatim rather
-  // than incorrectly guessing a physical quantity from the unit string.
+  const statusText=element(h,'Status');
   return {...base,id:element(h,'Id')||base.id,manufacturer:element(h,'Manufacturer')||base.manufacturer,
     medium:element(h,'Medium')||base.medium,version:element(h,'Version')||base.version,
-    access:element(h,'AccessNumber')||base.access,status:parseInt(element(h,'Status')||'0',16),
+    access:element(h,'AccessNumber')||base.access,status:statusText?parseInt(statusText,16):base.status,
     records,warning:base.warning||'',more:base.more};
  }
+
  const api={apiVersion:1,
   get metadata(){return Object.freeze({engine:state.engine,version:state.version,libmbusIntegrated:!!native})},
   get status(){return Object.freeze({...state})},

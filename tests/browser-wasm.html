@@ -1,0 +1,16 @@
+<!doctype html><meta charset="utf-8"><title>libmbus browser selftest</title>
+<pre id="result">PENDING</pre>
+<script src="../decoder.js"></script><script src="../decoder-api.js"></script><script src="../wasm/libmbus.js"></script>
+<script>
+(async()=>{
+ try {
+  const ok=await window.MbusDecoder.loadWasm(window.createLibmbusModule,'test');
+  if(!ok) throw Error('loadWasm: '+window.MbusDecoder.status.reason);
+  const data=[0x08,0x02,0x72,0x11,0x22,0x33,0x44,0x2d,0x2c,0x01,0x07,0x01,0,0,0,0x02,0x65,0x8c,0x07];
+  const frame=[0x68,data.length,data.length,0x68,...data,data.reduce((a,b)=>a+b,0)&255,0x16];
+  const d=window.MbusDecoder.decode({kind:'long',bytes:frame,data});
+  if(d.records[0].value!=='19.32'||d.records[0].unit!=='°C'||d.id!=='44332211')throw Error('Unexpected decode '+JSON.stringify(d));
+  document.getElementById('result').textContent='PASS '+JSON.stringify({metadata:window.MbusDecoder.metadata,record:d.records[0]});
+ }catch(e){document.getElementById('result').textContent='FAIL '+(e.stack||e)}
+})();
+</script>
